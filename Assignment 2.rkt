@@ -91,10 +91,10 @@
 (define-struct container [world1 world2 world3 world4])
 
 (define INITIAL-WORLD 
-  (make-container (make-world 0 (s 0.5) true (make-sound sosa revsosa) false)
-                  (make-world 0 (s 0.5) true (make-sound carnage revcarnage) true)
-                  (make-world 0 (s 0.5) true (make-sound tsunami revtsunami) true)
-                  (make-world 0 (s 0.5) true (make-sound floss revfloss) true)))
+  (make-container (make-world 0 (s 0.5) true (make-sound sosa revsosa) true)
+                  (make-world 0 (s 0.5) false (make-sound carnage revcarnage) true)
+                  (make-world 0 (s 0.5) false (make-sound tsunami revtsunami) true)
+                  (make-world 0 (s 0.5) false (make-sound floss revfloss) true)))
 
 ;; how much of the song to play each time?
 (define PLAY-CHUNK (round (s 0.1)))
@@ -248,13 +248,34 @@
   )
 )
 (define (drawStop s)
-  (place-image (rectangle (/ BOX-WIDTH 2) (/ BOX-HEIGHT 2) "solid" "red") (* BOX-WIDTH .75) (- WORLD-HEIGHT (* BOX-HEIGHT .75)) s)
+  (local
+    [(define WIDTH (* BOX-WIDTH .75))
+     (define HEIGHT (- WORLD-HEIGHT (* BOX-HEIGHT .75)))
+    ]
+  (place-image (text "Stop All" 20 "black") WIDTH HEIGHT
+      (place-image (rectangle (/ BOX-WIDTH 2) (/ BOX-HEIGHT 2) "solid" "red") WIDTH HEIGHT s)
+   )
+ )
 )
 (define (drawPlay s)
-  (place-image (rectangle (/ BOX-WIDTH 2) (/ BOX-HEIGHT 2) "solid" "green") (/ BOX-WIDTH 4) (- WORLD-HEIGHT (* BOX-HEIGHT .75)) s)
+  (local
+    [(define WIDTH (/ BOX-WIDTH 4))
+     (define HEIGHT (- WORLD-HEIGHT (* BOX-HEIGHT .75)))
+    ]
+  (place-image (text "Play All" 20 "black") WIDTH HEIGHT
+      (place-image (rectangle (/ BOX-WIDTH 2) (/ BOX-HEIGHT 2) "solid" "green") WIDTH HEIGHT s)
+  )
+ )
 )
 (define (drawReset s)
-  (place-image (rectangle BOX-WIDTH (/ BOX-HEIGHT 2) "solid" "black") (/ BOX-WIDTH 2) (- WORLD-HEIGHT (/ BOX-HEIGHT 4)) s) 
+  (local
+    [(define WIDTH (/ BOX-WIDTH 2))
+     (define HEIGHT (- WORLD-HEIGHT (/ BOX-HEIGHT 4)))
+    ]
+  (place-image (text "Reset All" 20 "white") WIDTH HEIGHT
+      (place-image (rectangle BOX-WIDTH (/ BOX-HEIGHT 2) "solid" "black") WIDTH HEIGHT s)
+   )
+  )
 )
 ;; draw the appropriate play/pause shape on a scene
 ;; world scene -> scene
