@@ -1,6 +1,8 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
 #reader(lib "htdp-intermediate-reader.ss" "lang")((modname |Assignment 2|) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #f #t none #f ())))
+;; Remake "revsosaFunct" for all 4 reversed tracks
+
 ;; volume changer next to each box
 ;; reverse track toggle
 ;; start//stop position changer for each track
@@ -13,11 +15,34 @@
 (define (s sec) (* SR sec))
 (define (both a b) b)
 
+; Purpose: reverse sound
+; Number -> Number
+; (revsnd 0)
+(define (revsosaFunct frame)
+ (rs-ith/left sosa (- (s 40) frame 1))
+)
+(define (revcarnageFunct frame)
+ (rs-ith/left carnage (- (s 40) frame 1))
+)
+(define (revtsunamiFunct frame)
+ (rs-ith/left tsunami (- (s 40) frame 1))
+)
+(define (revflossFunct frame)
+ (rs-ith/left floss (- (s 40) frame 1))
+)
+
 ; Sounds
 (define sosa (rs-read/clip "sosa.wav" (s 0) (s 40)))
 (define carnage (rs-read/clip "carnage.wav" (s 0) (s 40)))
 (define tsunami (rs-read/clip "tsunami.wav" (s 0) (s 40)))
 (define floss (rs-read/clip "floss.wav" (s 0) (s 40)))
+
+;Reversed Sounds
+(define revsosa (signal->rsound (s 40) (indexed-signal revsosaFunct)))
+
+(define revcarnage (signal->rsound (s 40) (indexed-signal revcarnageFunct)))
+(define revtsunami (signal->rsound (s 40) (indexed-signal revtsunamiFunct)))
+(define revfloss (signal->rsound (s 40) (indexed-signal revflossFunct)))
 
 ;; Graphics
 
@@ -31,7 +56,7 @@
 (define BOX-HEIGHT 100)
 
 (define WORLD-WIDTH 1000)
-(define WORLD-HEIGHT 700)
+(define WORLD-HEIGHT 650)
 (define TRIANGLE-SIDE 100)
 (define SLIDER-WIDTH (- BOX-WIDTH TRIANGLE-SIDE))
 
@@ -61,10 +86,15 @@
 
 
 ;; World structures
-(define-struct world (play-head next-start playing? sound))
+(define-struct sound (forward reversed))
+(define-struct world (play-head next-start playing? sound forward?))
 (define-struct container [world1 world2 world3 world4])
 
-(define INITIAL-WORLD (make-container (make-world 0 (s 0.5) true sosa) (make-world 0 (s 0.5) true carnage) (make-world 0 (s 0.5) true tsunami) (make-world 0 (s 0.5) true floss)))
+(define INITIAL-WORLD 
+  (make-container (make-world 0 (s 0.5) true (make-sound sosa revsosa) false)
+                  (make-world 0 (s 0.5) true (make-sound carnage revcarnage) true)
+                  (make-world 0 (s 0.5) true (make-sound tsunami revtsunami) true)
+                  (make-world 0 (s 0.5) true (make-sound floss revfloss) true)))
 
 ;; how much of the song to play each time?
 (define PLAY-CHUNK (round (s 0.1)))
@@ -73,7 +103,6 @@
 
 ;; the pstream that we're going to use:
 (define ps (make-pstream))
-
 
 ;; given the current pstream time and the next
 ;; time to play, return true if it's time to play
@@ -103,14 +132,14 @@
                  ]
              
              (both (pstream-queue ps
-                                  (clip (world-sound 1w) 
+                                  (clip (if (world-forward? 1w) (sound-forward (world-sound 1w)) (sound-reversed (world-sound 1w)))
                                         playhead next-playhead
                                    )
                                   next-start)
                    
                    
                    (make-world next-playhead (+ next-start PLAY-CHUNK)
-                               (world-playing? 1w) (world-sound 1w))
+                               (world-playing? 1w) (world-sound 1w) (world-forward? 1w))
                    )
                    
                    )]
@@ -119,6 +148,7 @@
                      (world-next-start 1w)
                      (world-playing? 1w)
                      (world-sound 1w)
+                     (world-forward? 1w)
                     )
            ]
           )
@@ -129,7 +159,7 @@
 ;; call checkPlayingWorlds if song is not paused
 (define (checkPlayingWorlds cur w)
   (make-container 
-    (cond [(world-playing? (container-world1 w)) (playSong cur (container-world1 w))]
+   (cond [(world-playing? (container-world1 w)) (playSong cur (container-world1 w))]
         [else (container-world1 w)])
    (cond [(world-playing? (container-world2 w)) (playSong cur (container-world2 w))]
         [else (container-world2 w)])
@@ -151,28 +181,74 @@
 (define (drawScene worldnum 1w scene)
   (local
     [(define HEIGHT (+ (* worldnum 50) (* (- worldnum 1) 50) (* BOX-DIVISION worldnum)))]
-    
-  (draw-play worldnum 1w
+   
+    ;Play Forward:
+  (cond
+    [(world-forward? 1w)
+     (draw-play worldnum 1w
              (place-image (rectangle 10 BOX-HEIGHT "solid" "black")
                 (+ TRIANGLE-SIDE
-                   (* SLIDER-WIDTH (/ (world-play-head 1w) (rs-frames (world-sound 1w)))))
+                   (* SLIDER-WIDTH (/ (world-play-head 1w) (rs-frames (sound-forward (world-sound 1w))))))
                 HEIGHT
                 (place-image (rectangle BOX-WIDTH BOX-HEIGHT "solid" "purple") 300 HEIGHT scene)) 
      )
+    ]
+    [else 
+    ;Play Reversed:
+    (draw-play worldnum 1w
+             (place-image (rectangle 10 BOX-HEIGHT "solid" "black")
+                (- BOX-WIDTH (+
+                   (* SLIDER-WIDTH (/ (world-play-head 1w) (rs-frames (sound-forward (world-sound 1w)))))))
+                HEIGHT
+                (place-image (rectangle BOX-WIDTH BOX-HEIGHT "solid" "purple") 300 HEIGHT scene)) 
+     )
+    ]
+    )
     )
 )
 ;; draw a blank scene with a play head and a play/pause button
 ;; world -> scene
 (define (draw-world w)
     ;(draw-play world1 (drawScene 1 world1))
+  (drawButtons 
     (drawScene 1 (container-world1 w) 
                (drawScene 2 (container-world2 w)
                                     (drawScene 3 (container-world3 w)
                                                         (drawScene 4 (container-world4 w) (empty-scene WORLD-WIDTH WORLD-HEIGHT)))))
-    
+    )
 )
 
+(define (drawButtons s)
+ (drawPlay 
+  (drawStop
+   (drawReset 
+    (drawReverseToggle s)
+   )
+  )
+ )
+)
 
+(define (drawReverseToggle s)
+  (place-image (square BOX-HEIGHT "solid" "blue") (+ BOX-WIDTH (/ BOX-WIDTH 8)) (+ (/ BOX-HEIGHT 2) (* 0 100) (* BOX-DIVISION 1))
+               (place-image (square BOX-HEIGHT "solid" "blue") (+ BOX-WIDTH (/ BOX-WIDTH 8)) (+ (/ BOX-HEIGHT 2) (* 1 100) (* BOX-DIVISION 2))
+                            (place-image (square BOX-HEIGHT "solid" "blue") (+ BOX-WIDTH (/ BOX-WIDTH 8)) (+ (/ BOX-HEIGHT 2) (* 2 100) (* BOX-DIVISION 3))
+                                          (place-image (square BOX-HEIGHT "solid" "blue") (+ BOX-WIDTH (/ BOX-WIDTH 8)) (+ (/ BOX-HEIGHT 2) (* 3 100) (* BOX-DIVISION 4))
+                                                       s
+                                                       )
+                                          )
+                            )
+               
+               )
+)
+(define (drawStop s)
+  (place-image (rectangle (/ BOX-WIDTH 2) (/ BOX-HEIGHT 2) "solid" "red") (* BOX-WIDTH .75) (- WORLD-HEIGHT (* BOX-HEIGHT .75)) s)
+)
+(define (drawPlay s)
+  (place-image (rectangle (/ BOX-WIDTH 2) (/ BOX-HEIGHT 2) "solid" "green") (/ BOX-WIDTH 4) (- WORLD-HEIGHT (* BOX-HEIGHT .75)) s)
+)
+(define (drawReset s)
+  (place-image (rectangle BOX-WIDTH (/ BOX-HEIGHT 2) "solid" "black") (/ BOX-WIDTH 2) (- WORLD-HEIGHT (/ BOX-HEIGHT 4)) s) 
+)
 ;; draw the appropriate play/pause shape on a scene
 ;; world scene -> scene
 (define (draw-play worldnum 1w scene)
@@ -199,18 +275,64 @@
     [(define HEIGHT-MIN (+ (* (- worldnum 1) 100) (* BOX-DIVISION worldnum)))
      (define HEIGHT-MAX (+ (* (- worldnum 1) 100) 100 (* BOX-DIVISION worldnum)))
     ]
-  (cond [(and (string=? evt "button-down") 
-              (and (<= x BOX-WIDTH)
+  (cond [(string=? evt "button-down")
+         (cond
+           [(and (<= x BOX-WIDTH)
                    (and (>= y HEIGHT-MIN)
                    (<= y HEIGHT-MAX)
                  )     
               )
-         )
          (make-world (world-play-head 1w)
                      (max (world-next-start 1w) cur-time)
                      (not (world-playing? 1w))
-                     (world-sound 1w))
-        ]
+                     (world-sound 1w)
+                     (world-forward? 1w))
+         ]
+           
+        ;Reset box 
+         [(and (<= x BOX-WIDTH) (>= y (- WORLD-HEIGHT (/ BOX-HEIGHT 2))))
+               (make-world 0
+                     (pstream-current-frame ps)
+                     true
+                     (world-sound 1w)
+                     (world-forward? 1w))
+               
+         ]
+         ;Start Box, one on left
+         ; (/ BOX-WIDTH 4) (- WORLD-HEIGHT BOX-HEIGHT (/ BOX-HEIGHT 2))
+         [(and (<= x (/ BOX-WIDTH 2))(>= y (- WORLD-HEIGHT BOX-HEIGHT )))
+          (make-world (world-play-head 1w)
+                     (pstream-current-frame ps)
+                     true
+                     (world-sound 1w)
+                     (world-forward? 1w))
+         ]
+         
+         ;Pause Box, one on right
+         [(and (>= x (/ BOX-WIDTH 2))(and (<= x BOX-WIDTH) (>= y (- WORLD-HEIGHT BOX-HEIGHT ))))
+          (make-world (world-play-head 1w)
+                    (pstream-current-frame ps)
+                     false
+                     (world-sound 1w)
+                     (world-forward? 1w))
+         ]
+         
+         ;Forward/Reverse Toggle Button, blue square next to playback
+         [(and (>= x (- (+ BOX-WIDTH (/ BOX-WIDTH 8)) (/ BOX-HEIGHT 2)))
+                   (and (<= x (+ BOX-WIDTH (/ BOX-WIDTH 8) (/ BOX-HEIGHT 2)))
+                    (and (>= y HEIGHT-MIN) (<= y HEIGHT-MAX))
+              ))
+          (make-world (world-play-head 1w)
+                    (pstream-current-frame ps)
+                     (world-playing? 1w)
+                     (world-sound 1w)
+                     (not (world-forward? 1w)))
+         ]
+         
+         [else 1w]
+         
+        )
+         ]
         
        [(string=? evt "move")
           (cond
@@ -218,16 +340,43 @@
                    (and (>= y HEIGHT-MIN)
                    (<= y HEIGHT-MAX)
                  )     
-              )) 
-             (make-world (round (* (rs-frames (world-sound 1w))
+              ))
+             (cond
+               
+               ;Move Forward
+               [(world-forward? 1w)
+             (make-world (round (* (rs-frames (sound-forward (world-sound 1w)))
                                (/ (min 
                                    (max 0 (- x TRIANGLE-SIDE))
                                    SLIDER-WIDTH) 
                                   SLIDER-WIDTH)))
                          (max (world-next-start 1w) cur-time)
                          (world-playing? 1w)
-                         (world-sound 1w)
+                         (make-sound
+                          (sound-forward (world-sound 1w))
+                          (sound-reversed (world-sound 1w))
+                         )
+                         (world-forward? 1w)
                    )
+             ]
+               ;Move Reversed
+               [else
+                (make-world (round (* (rs-frames (sound-forward (world-sound 1w)))
+                               (/ (min 
+                                   (max 0 (- x TRIANGLE-SIDE))
+                                   SLIDER-WIDTH) 
+                                  SLIDER-WIDTH)))
+                         (max (world-next-start 1w) cur-time)
+                         (world-playing? 1w)
+                         (make-sound
+                          (sound-forward (world-sound 1w))
+                          (sound-reversed (world-sound 1w))
+                         )
+                         (world-forward? 1w)
+                   )
+                
+                ]
+               )
            ]
            [else 1w]
            )
@@ -253,10 +402,17 @@
 )
 
 (define (keyPress w k)
+  (local
+    [(define cur (pstream-current-frame ps))]
   (cond
-    [(key=? k " ") INITIAL-WORLD]
+    [(key=? k " ") (make-container (make-world 0 cur true sosa false)
+                                   (make-world 0 cur true carnage true)
+                                   (make-world 0 cur true tsunami true)
+                                   (make-world 0 cur true floss true))
+    ]
     [else w]
     )
+  )
 )
 
 (big-bang INITIAL-WORLD
