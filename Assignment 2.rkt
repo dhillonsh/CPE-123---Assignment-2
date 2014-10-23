@@ -87,14 +87,14 @@
 
 ;; World structures
 (define-struct sound (forward reversed))
-(define-struct world (play-head next-start playing? sound forward?))
+(define-struct world (play-head next-start playing? sound forward? volume))
 (define-struct container [world1 world2 world3 world4])
 
 (define INITIAL-WORLD 
-  (make-container (make-world 0 (s 0.5) true (make-sound sosa revsosa) true)
-                  (make-world 0 (s 0.5) false (make-sound carnage revcarnage) true)
-                  (make-world 0 (s 0.5) false (make-sound tsunami revtsunami) true)
-                  (make-world 0 (s 0.5) false (make-sound floss revfloss) true)))
+  (make-container (make-world 0 (s 0.5) true (make-sound sosa revsosa) true 1)
+                  (make-world 0 (s 0.5) false (make-sound carnage revcarnage) true 0)
+                  (make-world 0 (s 0.5) false (make-sound tsunami revtsunami) true 1)
+                  (make-world 0 (s 0.5) false (make-sound floss revfloss) true 1)))
 
 ;; how much of the song to play each time?
 (define PLAY-CHUNK (round (s 0.1)))
@@ -132,14 +132,19 @@
                  ]
              
              (both (pstream-queue ps
-                                  (clip (if (world-forward? 1w) (sound-forward (world-sound 1w)) (sound-reversed (world-sound 1w)))
+                                  (rs-scale (world-volume 1w) (clip (if (world-forward? 1w) (sound-forward (world-sound 1w)) (sound-reversed (world-sound 1w)))
                                         playhead next-playhead
                                    )
+                                  )
                                   next-start)
                    
                    
-                   (make-world next-playhead (+ next-start PLAY-CHUNK)
-                               (world-playing? 1w) (world-sound 1w) (world-forward? 1w))
+                   (make-world next-playhead
+                               (+ next-start PLAY-CHUNK)
+                               (world-playing? 1w)
+                               (world-sound 1w)
+                               (world-forward? 1w)
+                               (world-volume 1w))
                    )
                    
                    )]
@@ -149,6 +154,7 @@
                      (world-playing? 1w)
                      (world-sound 1w)
                      (world-forward? 1w)
+                     (world-volume 1w)
                     )
            ]
           )
@@ -209,7 +215,6 @@
 ;; draw a blank scene with a play head and a play/pause button
 ;; world -> scene
 (define (draw-world w)
-    ;(draw-play world1 (drawScene 1 world1))
   (drawButtons w
     (drawScene 1 (container-world1 w) 
                (drawScene 2 (container-world2 w)
@@ -222,10 +227,32 @@
  (drawPlay 
   (drawStop
    (drawReset 
-    (drawReverseToggleMain w s)
+    (drawReverseToggleMain w
+     (drawVolumeMain w s))
    )
   )
  )
+)
+
+(define (drawVolume 1w worldnum s)
+  (local
+  [(define WIDTH (+ BOX-WIDTH (/ BOX-WIDTH 3)))
+   (define HEIGHT (+ (/ BOX-HEIGHT 2) (* (- worldnum 1) 100) (* BOX-DIVISION worldnum)))
+  ]
+  (place-image (rectangle BOX-HEIGHT 10 "solid" "black") WIDTH (- (+ HEIGHT (/ BOX-HEIGHT 2)) (* BOX-HEIGHT (world-volume 1w)))
+    (place-image (square BOX-HEIGHT "solid" "blue") WIDTH HEIGHT
+     s))
+  )
+)
+
+(define (drawVolumeMain w s)
+ (drawVolume (container-world1 w) 1
+   (drawVolume (container-world2 w) 2
+    (drawVolume (container-world3 w) 3
+     (drawVolume (container-world4 w) 4 s)
+     )
+    )
+  )
 )
 
 (define (drawReverseToggle 1w worldnum s)
@@ -314,7 +341,8 @@
                      (max (world-next-start 1w) cur-time)
                      (not (world-playing? 1w))
                      (world-sound 1w)
-                     (world-forward? 1w))
+                     (world-forward? 1w)
+                     (world-volume 1w))
          ]
            
         ;Reset box 
@@ -323,7 +351,8 @@
                      (pstream-current-frame ps)
                      true
                      (world-sound 1w)
-                     (world-forward? 1w))
+                     (world-forward? 1w)
+                     100)
                
          ]
          ;Start Box, one on left
@@ -333,7 +362,8 @@
                      (pstream-current-frame ps)
                      true
                      (world-sound 1w)
-                     (world-forward? 1w))
+                     (world-forward? 1w)
+                     (world-volume 1w))
          ]
          
          ;Pause Box, one on right
@@ -342,7 +372,8 @@
                     (pstream-current-frame ps)
                      false
                      (world-sound 1w)
-                     (world-forward? 1w))
+                     (world-forward? 1w)
+                     (world-volume 1w))
          ]
          
          ;Forward/Reverse Toggle Button, blue square next to playback
@@ -354,7 +385,8 @@
                     (pstream-current-frame ps)
                      (world-playing? 1w)
                      (world-sound 1w)
-                     (not (world-forward? 1w)))
+                     (not (world-forward? 1w))
+                     (world-volume 1w))
          ]
 
          
@@ -386,6 +418,7 @@
                           (sound-reversed (world-sound 1w))
                          )
                          (world-forward? 1w)
+                         (world-volume 1w)
                    )
              ]
                ;Move Reversed
@@ -402,11 +435,30 @@
                           (sound-reversed (world-sound 1w))
                          )
                          (world-forward? 1w)
+                         (world-volume 1w)
                    )
                 
                 ]
                )
            ]
+            
+           [(and (>= x (- (+ BOX-WIDTH (/ BOX-WIDTH 3)) (/ BOX-HEIGHT 2)))
+                 (and (<= x (+ BOX-WIDTH (/ BOX-WIDTH 3) (/ BOX-HEIGHT 2)))
+                      (and (>= y HEIGHT-MIN) (<= y HEIGHT-MAX)
+                       )
+                  )
+            )
+            (make-world (world-play-head 1w)
+                         (world-next-start 1w)
+                         (world-playing? 1w)
+                         (make-sound
+                          (sound-forward (world-sound 1w))
+                          (sound-reversed (world-sound 1w))
+                         )
+                         (world-forward? 1w)
+                         (/ (- HEIGHT-MAX y) (- HEIGHT-MAX HEIGHT-MIN))
+                   )
+           ] 
            [else 1w]
            )
          ]
@@ -430,23 +482,8 @@
    )
 )
 
-(define (keyPress w k)
-  (local
-    [(define cur (pstream-current-frame ps))]
-  (cond
-    [(key=? k " ") (make-container (make-world 0 cur true sosa false)
-                                   (make-world 0 cur true carnage true)
-                                   (make-world 0 cur true tsunami true)
-                                   (make-world 0 cur true floss true))
-    ]
-    [else w]
-    )
-  )
-)
-
 (big-bang INITIAL-WORLD
           [to-draw draw-world]
           [on-tick tock]
-          [on-key keyPress]
           [on-mouse mouse-move-wrapper]
 )
