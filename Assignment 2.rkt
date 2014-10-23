@@ -210,7 +210,7 @@
 ;; world -> scene
 (define (draw-world w)
     ;(draw-play world1 (drawScene 1 world1))
-  (drawButtons 
+  (drawButtons w
     (drawScene 1 (container-world1 w) 
                (drawScene 2 (container-world2 w)
                                     (drawScene 3 (container-world3 w)
@@ -218,27 +218,34 @@
     )
 )
 
-(define (drawButtons s)
+(define (drawButtons w s)
  (drawPlay 
   (drawStop
    (drawReset 
-    (drawReverseToggle s)
+    (drawReverseToggleMain w s)
    )
   )
  )
 )
 
-(define (drawReverseToggle s)
-  (place-image (square BOX-HEIGHT "solid" "blue") (+ BOX-WIDTH (/ BOX-WIDTH 8)) (+ (/ BOX-HEIGHT 2) (* 0 100) (* BOX-DIVISION 1))
-               (place-image (square BOX-HEIGHT "solid" "blue") (+ BOX-WIDTH (/ BOX-WIDTH 8)) (+ (/ BOX-HEIGHT 2) (* 1 100) (* BOX-DIVISION 2))
-                            (place-image (square BOX-HEIGHT "solid" "blue") (+ BOX-WIDTH (/ BOX-WIDTH 8)) (+ (/ BOX-HEIGHT 2) (* 2 100) (* BOX-DIVISION 3))
-                                          (place-image (square BOX-HEIGHT "solid" "blue") (+ BOX-WIDTH (/ BOX-WIDTH 8)) (+ (/ BOX-HEIGHT 2) (* 3 100) (* BOX-DIVISION 4))
-                                                       s
-                                                       )
-                                          )
-                            )
-               
-               )
+(define (drawReverseToggle 1w worldnum s)
+(local
+  [(define WIDTH (+ BOX-WIDTH (/ BOX-WIDTH 8)))
+   (define HEIGHT (+ (/ BOX-HEIGHT 2) (* (- worldnum 1) 100) (* BOX-DIVISION worldnum)))
+  ]
+  (place-image (text (if (world-forward? 1w) "Forward" "Reverse") 20 "black") WIDTH HEIGHT
+    (place-image (square BOX-HEIGHT "solid" "blue") WIDTH HEIGHT
+     s))
+ )
+)
+(define (drawReverseToggleMain w s)
+  (drawReverseToggle (container-world1 w) 1
+   (drawReverseToggle (container-world2 w) 2
+    (drawReverseToggle (container-world3 w) 3
+     (drawReverseToggle (container-world4 w) 4 s)
+     )
+    )
+  )
 )
 (define (drawStop s)
   (place-image (rectangle (/ BOX-WIDTH 2) (/ BOX-HEIGHT 2) "solid" "red") (* BOX-WIDTH .75) (- WORLD-HEIGHT (* BOX-HEIGHT .75)) s)
@@ -322,12 +329,13 @@
                    (and (<= x (+ BOX-WIDTH (/ BOX-WIDTH 8) (/ BOX-HEIGHT 2)))
                     (and (>= y HEIGHT-MIN) (<= y HEIGHT-MAX))
               ))
-          (make-world (world-play-head 1w)
+          (make-world (- (s 40) (world-play-head 1w))
                     (pstream-current-frame ps)
                      (world-playing? 1w)
                      (world-sound 1w)
                      (not (world-forward? 1w)))
          ]
+
          
          [else 1w]
          
@@ -361,11 +369,11 @@
              ]
                ;Move Reversed
                [else
-                (make-world (round (* (rs-frames (sound-forward (world-sound 1w)))
+                (make-world (- (s 40) (round (* (rs-frames (sound-forward (world-sound 1w)))
                                (/ (min 
                                    (max 0 (- x TRIANGLE-SIDE))
                                    SLIDER-WIDTH) 
-                                  SLIDER-WIDTH)))
+                                  SLIDER-WIDTH))))
                          (max (world-next-start 1w) cur-time)
                          (world-playing? 1w)
                          (make-sound
