@@ -1,11 +1,6 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
 #reader(lib "htdp-intermediate-reader.ss" "lang")((modname |Assignment 2|) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #f #t none #f ())))
-;; Remake "revsosaFunct" for all 4 reversed tracks
-
-;; start//stop position changer for each track
-;        on-key "left-click" = start position | "right-click" = stop position
-
 (require rsound)
 (require 2htdp/image)
 (require 2htdp/universe)
@@ -86,14 +81,14 @@
 
 ;; World structures
 (define-struct sound (forward reversed))
-(define-struct world (play-head next-start playing? sound forward? volume start))
+(define-struct world (play-head next-start playing? sound forward? volume start end))
 (define-struct container [world1 world2 world3 world4])
 
 (define INITIAL-WORLD 
-  (make-container (make-world 0 (s 0.5) true (make-sound sosa revsosa) true 1 88200)
-                  (make-world 0 (s 0.5) false (make-sound carnage revcarnage) true 0 0)
-                  (make-world 0 (s 0.5) false (make-sound tsunami revtsunami) true 1 0)
-                  (make-world 0 (s 0.5) false (make-sound floss revfloss) true 1 0)))
+  (make-container (make-world 0 (s 0.5) true (make-sound sosa revsosa) true 1 0 (s 40))
+                  (make-world 0 (s 0.5) false (make-sound carnage revcarnage) true 0 0 (s 40))
+                  (make-world 0 (s 0.5) false (make-sound tsunami revtsunami) true 1 0 (s 40))
+                  (make-world 0 (s 0.5) false (make-sound floss revfloss) true 1 0 (s 40))))
 
 ;; how much of the song to play each time?
 (define PLAY-CHUNK (round (s 0.1)))
@@ -118,7 +113,7 @@
     (cond [(time-to-play? cur next-start)
            (local [(define playhead 
                       (cond
-                        [(>= (world-play-head 1w) (s 40)) (world-start 1w)]
+                        [(>= (world-play-head 1w) (world-end 1w)) (world-start 1w)]
                         [else (world-play-head 1w)]
                       )
                      )
@@ -144,7 +139,8 @@
                                (world-sound 1w)
                                (world-forward? 1w)
                                (world-volume 1w)
-                               (world-start 1w))
+                               (world-start 1w)
+                               (world-end 1w))
                    )
                    
                    )]
@@ -156,6 +152,7 @@
                      (world-forward? 1w)
                      (world-volume 1w)
                      (world-start 1w)
+                     (world-end 1w)
                     )
            ]
           )
@@ -204,13 +201,14 @@
                               ":"
                               (number->string (modulo (/ FRAMES SR) 60)))
                         20 "red") (/ BOX-WIDTH 2) HEIGHT
+          (place-image (rectangle 10 BOX-HEIGHT "solid" "red") (+ TRIANGLE-SIDE (* SLIDER-WIDTH (/ (world-end 1w) FRAMES))) HEIGHT
            (place-image (rectangle 10 BOX-HEIGHT "solid" "green") (+ TRIANGLE-SIDE (* SLIDER-WIDTH (/ (world-start 1w) FRAMES))) HEIGHT
              (place-image (rectangle 10 BOX-HEIGHT "solid" "black")
                 (+ TRIANGLE-SIDE
                    (* SLIDER-WIDTH (/ (world-play-head 1w) FRAMES)))
                 HEIGHT
                 (place-image (rectangle BOX-WIDTH BOX-HEIGHT "solid" "purple") (/ BOX-WIDTH 2) HEIGHT scene))
-             )
+             ))
          )
      )
     ]
@@ -248,15 +246,40 @@
     )
 )
 
+
 (define (drawButtons w s)
- (drawPlay 
-  (drawStop
-   (drawReset 
-    (drawReverseToggleMain w
-     (drawVolumeMain w s))
+   (drawPlay 
+    (drawStop
+     (drawReset 
+      (drawReverseToggleMain w
+       (drawVolumeMain w
+         (drawPlayPauseMain w s))
+     )
    )
   )
  )
+)
+
+(define (drawPlayPause 1w worldnum s)
+  (local
+  [(define WIDTH (+ BOX-WIDTH (/ BOX-WIDTH 2) (/ BOX-WIDTH 25)))
+   (define HEIGHT (+ (/ BOX-HEIGHT 2) (* (- worldnum 1) 100) (* BOX-DIVISION worldnum)))
+  ]
+  (place-image (text (if (world-playing? 1w) "Play" "Pause") 32 "red") WIDTH HEIGHT
+    (place-image (square BOX-HEIGHT "solid" "blue") WIDTH HEIGHT
+     s)
+  )
+ )
+)
+
+(define (drawPlayPauseMain w s)
+ (drawPlayPause (container-world1 w) 1
+   (drawPlayPause (container-world2 w) 2
+    (drawPlayPause (container-world3 w) 3
+     (drawPlayPause (container-world4 w) 4 s)
+     )
+    )
+  )
 )
 
 (define (drawVolume 1w worldnum s)
@@ -356,44 +379,60 @@
   (local
     [(define HEIGHT-MIN (+ (* (- worldnum 1) 100) (* BOX-DIVISION worldnum)))
      (define HEIGHT-MAX (+ (* (- worldnum 1) 100) 100 (* BOX-DIVISION worldnum)))
+      (define FORWARD-FRAMES (round (* (rs-frames (sound-forward (world-sound 1w)))
+                               (/ (min 
+                                   (max 0 (- x TRIANGLE-SIDE))
+                                   SLIDER-WIDTH) 
+                                  SLIDER-WIDTH))))
+   (define setBar (round (* (rs-frames (sound-forward (world-sound 1w)))
+                               (/ (min 
+                                   (max 0 (- x TRIANGLE-SIDE))
+                                   SLIDER-WIDTH) 
+                                  SLIDER-WIDTH))))
     ]
   (cond [(string=? evt "button-down")
          (cond
-           ;Pause//Resume
+         
+        ;;Change starting position
            [(and (<= x BOX-WIDTH)
-                   (and (>= y HEIGHT-MIN)
-                   (<= y HEIGHT-MAX)
+                   (and (>= y HEIGHT-MIN )
+                   (<= y (/ (+ HEIGHT-MIN HEIGHT-MAX) 2)
+                       )
                  )     
               )
-         (make-world (world-play-head 1w)
+            
+         (if (and (world-forward? 1w) (< setBar (world-end 1w)))
+             (make-world (world-play-head 1w)
                      (max (world-next-start 1w) cur-time)
-                     (not (world-playing? 1w))
+                     (world-playing? 1w)
                      (world-sound 1w)
                      (world-forward? 1w)
                      (world-volume 1w)
-                     (world-start 1w))
+                      setBar
+                     (world-end 1w)
+                     )
+             1w)
          ]
-         
-        ;Change starting position
-           #;[(and (<= x BOX-WIDTH)
-                   (and (>= y HEIGHT-MIN)
+           
+            ;Change ending position
+           [(and (<= x BOX-WIDTH)
+                   (and (>= y (/ (+ HEIGHT-MIN HEIGHT-MAX) 2) )
                    (<= y HEIGHT-MAX)
                  )     
               )
+            (if (and (world-forward? 1w) (> setBar (world-start 1w)))
          (make-world (world-play-head 1w)
                      (max (world-next-start 1w) cur-time)
                      (world-playing? 1w)
                      (world-sound 1w)
                      (world-forward? 1w)
                      (world-volume 1w)
-                     (round (* (rs-frames (sound-forward (world-sound 1w)))
-                               (/ (min 
-                                   (max 0 (- x TRIANGLE-SIDE))
-                                   SLIDER-WIDTH) 
-                                  SLIDER-WIDTH)))
-                     )
+                     (world-start 1w)
+                     setBar)
+                   
+                      
+                  1w   )
          ]
-           
            
         ;Reset box 
          [(and (<= x BOX-WIDTH) (>= y (- WORLD-HEIGHT (/ BOX-HEIGHT 2))))
@@ -403,7 +442,8 @@
                      (world-sound 1w)
                      true
                      1
-                     0)
+                     0
+                     (s 40))
                
          ]
          ;Start Box, one on left
@@ -415,7 +455,8 @@
                      (world-sound 1w)
                      (world-forward? 1w)
                      (world-volume 1w)
-                     (world-start 1w))
+                     (world-start 1w)
+                     (world-end 1w))
          ]
          
          ;Pause Box, one on right
@@ -426,7 +467,8 @@
                      (world-sound 1w)
                      (world-forward? 1w)
                      (world-volume 1w)
-                     (world-start 1w))
+                     (world-start 1w)
+                     (world-end 1w))
          ]
          
          ;Forward/Reverse Toggle Button, blue square next to playback
@@ -440,8 +482,23 @@
                      (world-sound 1w)
                      (not (world-forward? 1w))
                      (world-volume 1w)
-                     (world-start 1w))
+                     0
+                     (rs-frames (sound-forward (world-sound 1w))))
          ]
+          ;Play/Pause Button
+         [(and (>= x (- (+ BOX-WIDTH (/ BOX-WIDTH 2) (/ BOX-WIDTH 25)) (/ BOX-HEIGHT 2)))
+                   (and (<= x (+ BOX-WIDTH (/ BOX-WIDTH 2) (/ BOX-WIDTH 25) (/ BOX-HEIGHT 2)))
+                    (and (>= y HEIGHT-MIN) (<= y HEIGHT-MAX))
+              ))
+          (make-world (world-play-head 1w)
+                    (pstream-current-frame ps)
+                     (not(world-playing? 1w))
+                     (world-sound 1w)
+                     (world-forward? 1w)
+                     (world-volume 1w)
+                     (world-start 1w)
+                     (world-end 1w))
+          ]
 
          
          [else 1w]
@@ -450,31 +507,32 @@
          ]
         
        [(string=? evt "move")
+       
           (cond
             [(and (< x BOX-WIDTH) (and (<= x BOX-WIDTH)
                    (and (>= y HEIGHT-MIN)
                    (<= y HEIGHT-MAX)
+                        )
                  )     
-              ))
+              )
              (cond
                
                ;Move Forward
-               [(world-forward? 1w)
-             (make-world (round (* (rs-frames (sound-forward (world-sound 1w)))
-                               (/ (min 
-                                   (max 0 (- x TRIANGLE-SIDE))
-                                   SLIDER-WIDTH) 
-                                  SLIDER-WIDTH)))
+               [(and (world-forward? 1w)
+                     (and (< FORWARD-FRAMES (world-end 1w))
+                          (> FORWARD-FRAMES (world-start 1w))))
+             (make-world FORWARD-FRAMES
                          (max (world-next-start 1w) cur-time)
                          (world-playing? 1w)
                          (world-sound 1w)
                          (world-forward? 1w)
                          (world-volume 1w)
                          (world-start 1w)
+                         (world-end 1w)
                    )
              ]
                ;Move Reversed
-               [else
+               [(not (world-forward? 1w))
                 (make-world (- (s 40) (round (* (rs-frames (sound-forward (world-sound 1w)))
                                (/ (min 
                                    (max 0 (- x TRIANGLE-SIDE))
@@ -486,9 +544,11 @@
                          (world-forward? 1w)
                          (world-volume 1w)
                          (world-start 1w)
+                         (world-end 1w)
                    )
                 
                 ]
+               [else 1w]
                )
            ]
             
@@ -508,11 +568,13 @@
                          (world-forward? 1w)
                          (/ (- HEIGHT-MAX y) (- HEIGHT-MAX HEIGHT-MIN))
                          (world-start 1w)
+                         (world-end 1w)
                    )
            ] 
            [else 1w]
            )
          ]
+
         ;; some other kind of event:
         [else 1w])
     )
