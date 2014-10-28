@@ -25,6 +25,9 @@
  (rs-ith/left floss (- (s 40) frame 1))
 )
 
+(define DJ-IMAGE (bitmap/file "dj.png"))
+(define MUSIC-PLAYER-IMAGE (bitmap/file "musicplayer.png"))
+
 ; Sounds
 (define sosa (rs-read/clip "sosa.wav" (s 0) (s 40)))
 (define carnage (rs-read/clip "carnage.wav" (s 0) (s 40)))
@@ -58,7 +61,7 @@
 (define PLAY-IMG
   (rotate
    -90
-   (triangle TRIANGLE-SIDE "solid" "pink")))
+   (triangle TRIANGLE-SIDE "solid" "green")))
 
 ;; the "pause" rectangles
 (define PAUSE-IMG
@@ -196,18 +199,18 @@
                               (number->string (floor (/ (world-play-head 1w) SR 60)))
                               ":"
                               (number->string (modulo (floor (/ (world-play-head 1w) SR)) 60))
-                              "/"
+                              " / "
                               (number->string (floor (/ FRAMES SR 60)))
                               ":"
                               (number->string (modulo (/ FRAMES SR) 60)))
-                        20 "red") (/ BOX-WIDTH 2) HEIGHT
-          (place-image (rectangle 10 BOX-HEIGHT "solid" "red") (+ TRIANGLE-SIDE (* SLIDER-WIDTH (/ (world-end 1w) FRAMES))) HEIGHT
-           (place-image (rectangle 10 BOX-HEIGHT "solid" "green") (+ TRIANGLE-SIDE (* SLIDER-WIDTH (/ (world-start 1w) FRAMES))) HEIGHT
-             (place-image (rectangle 10 BOX-HEIGHT "solid" "black")
+                        20 "red") (+ (/ BOX-WIDTH 2) 50) (- HEIGHT 25)
+          (place-image (rectangle 10 (/ BOX-HEIGHT 3) "solid" "red") (+ TRIANGLE-SIDE (* SLIDER-WIDTH (/ (world-end 1w) FRAMES))) HEIGHT
+           (place-image (rectangle 10 (/ BOX-HEIGHT 3) "solid" "green") (+ TRIANGLE-SIDE (* SLIDER-WIDTH (/ (world-start 1w) FRAMES))) HEIGHT
+             (place-image (rectangle 5 (/ BOX-HEIGHT 3) "solid" "black")
                 (+ TRIANGLE-SIDE
                    (* SLIDER-WIDTH (/ (world-play-head 1w) FRAMES)))
                 HEIGHT
-                (place-image (rectangle BOX-WIDTH BOX-HEIGHT "solid" "purple") (/ BOX-WIDTH 2) HEIGHT scene))
+                (place-image MUSIC-PLAYER-IMAGE (+ (/ BOX-WIDTH 2) 50) HEIGHT scene))
              ))
          )
      )
@@ -216,19 +219,19 @@
     ;Play Reversed:
     (draw-play worldnum 1w
                (place-image (text (string-append 
-                              (number->string (floor (/ (world-play-head 1w) SR 60)))
+                              (number->string (floor (/ (world-play-head 1w) SR 60))) 
                               ":"
                               (number->string (- (modulo (/ FRAMES SR) 60) (modulo (floor (/ (world-play-head 1w) SR)) 60)))
-                              "/"
+                              " / "
                               (number->string (floor (/ FRAMES SR 60)))
                               ":"
-                              (number->string (modulo (/ FRAMES SR) 60)))
-                        20 "red") (/ BOX-WIDTH 2) HEIGHT
-             (place-image (rectangle 10 BOX-HEIGHT "solid" "black")
-                (- BOX-WIDTH (+
+                              (number->string (modulo (/ FRAMES SR) 60)))  
+                        20 "red") (/ BOX-WIDTH 2) HEIGHT 
+             (place-image (rectangle 10 (/ BOX-HEIGHT 3) "solid" "black")
+                (- BOX-WIDTH (+ 
                    (* SLIDER-WIDTH (/ (world-play-head 1w) FRAMES))))
                 HEIGHT
-                (place-image (rectangle BOX-WIDTH BOX-HEIGHT "solid" "purple") (/ BOX-WIDTH 2) HEIGHT scene))
+                (place-image MUSIC-PLAYER-IMAGE (+ (/ BOX-WIDTH 2) 50) HEIGHT scene)) 
              )
      )
     ]
@@ -242,7 +245,7 @@
     (drawScene 1 (container-world1 w) 
                (drawScene 2 (container-world2 w)
                                     (drawScene 3 (container-world3 w)
-                                                        (drawScene 4 (container-world4 w) (empty-scene WORLD-WIDTH WORLD-HEIGHT)))))
+                                                        (drawScene 4 (container-world4 w) (place-image DJ-IMAGE 200 200 (empty-scene WORLD-WIDTH WORLD-HEIGHT))))))
     )
 )
 
@@ -265,8 +268,8 @@
   [(define WIDTH (+ BOX-WIDTH (/ BOX-WIDTH 2) (/ BOX-WIDTH 25)))
    (define HEIGHT (+ (/ BOX-HEIGHT 2) (* (- worldnum 1) 100) (* BOX-DIVISION worldnum)))
   ]
-  (place-image (text (if (world-playing? 1w) "Play" "Pause") 32 "red") WIDTH HEIGHT
-    (place-image (square BOX-HEIGHT "solid" "blue") WIDTH HEIGHT
+  (place-image (text (if (world-playing? 1w) "Play" "Pause") 35 "white") (- WIDTH 20) HEIGHT
+    (place-image (square BOX-HEIGHT "outline" "green") (- WIDTH 20) HEIGHT
      s)
   )
  )
@@ -287,9 +290,9 @@
   [(define WIDTH (+ BOX-WIDTH (/ BOX-WIDTH 3)))
    (define HEIGHT (+ (/ BOX-HEIGHT 2) (* (- worldnum 1) 100) (* BOX-DIVISION worldnum)))
   ]
-  (place-image (text (number->string (* (world-volume 1w) 100)) 32 "red") WIDTH HEIGHT  
-   (place-image (rectangle BOX-HEIGHT 10 "solid" "black") WIDTH (- (+ HEIGHT (/ BOX-HEIGHT 2)) (* BOX-HEIGHT (world-volume 1w)))
-    (place-image (square BOX-HEIGHT "solid" "blue") WIDTH HEIGHT
+  (place-image (text (number->string (* (world-volume 1w) 100)) 32 "red") (- WIDTH 10) HEIGHT  
+   (place-image (rectangle BOX-HEIGHT 10 "solid" "black") (- WIDTH 10) (- (+ HEIGHT (/ BOX-HEIGHT 2)) (* BOX-HEIGHT (world-volume 1w)))
+    (place-image (square BOX-HEIGHT "outline" "orange") (- WIDTH 10) HEIGHT
      s))
   )
  )
@@ -310,14 +313,14 @@
   [(define WIDTH (+ BOX-WIDTH (/ BOX-WIDTH 8)))
    (define HEIGHT (+ (/ BOX-HEIGHT 2) (* (- worldnum 1) 100) (* BOX-DIVISION worldnum)))
   ]
-  (place-image (text (if (world-forward? 1w) "Forward" "Reverse") 20 "red") WIDTH HEIGHT
-    (place-image (square BOX-HEIGHT "solid" "blue") WIDTH HEIGHT
+  (place-image (text (if (world-forward? 1w) "Forward" "Reverse") 20 "yellow") WIDTH HEIGHT
+    (place-image (square BOX-HEIGHT "outline" "pink") WIDTH HEIGHT
      s))
  )
 )
 (define (drawReverseToggleMain w s)
   (drawReverseToggle (container-world1 w) 1
-   (drawReverseToggle (container-world2 w) 2
+   (drawReverseToggle (container-world2 w) 2 
     (drawReverseToggle (container-world3 w) 3
      (drawReverseToggle (container-world4 w) 4 s)
      )
